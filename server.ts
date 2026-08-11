@@ -57,9 +57,10 @@ function isFileExpiredError(error: any): boolean {
   );
 }
 
+const PORT = 3000;
+
 async function startServer() {
   const app = express();
-  const PORT = 3000;
 
   app.use(express.json({ limit: "150mb" }));
   app.use(express.urlencoded({ limit: "150mb", extended: true }));
@@ -433,9 +434,22 @@ Provide a well-structured synthesis across the student's study library. Be conci
     res.status(500).json({ error: err.message || "Internal Server Error" });
   });
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  // Export app for Vercel Serverless Functions
+  return app;
+}
+
+export const appPromise = startServer();
+export default async (req: any, res: any) => {
+  const app = await appPromise;
+  return app(req, res);
+};
+
+// Start standalone server if run directly outside Vercel
+if (!process.env.VERCEL) {
+  startServer().then((app) => {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
   });
 }
 
-startServer();

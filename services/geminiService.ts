@@ -3,6 +3,22 @@ import { Quiz } from '../types';
 const cache = new Map<string, any>();
 const activeRequests = new Set<string>();
 
+async function parseResponseError(response: Response, defaultMsg: string): Promise<string> {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    try {
+      const errorData = await response.json();
+      return errorData.error || errorData.message || defaultMsg;
+    } catch {
+      // Fall through
+    }
+  }
+  if (response.status === 404) {
+    return "API endpoint not found (404). Please ensure GEMINI_API_KEY is configured in Vercel environment variables.";
+  }
+  return `Server error (${response.status})`;
+}
+
 export async function* generateSummaryStream(bookId: string, bookTitle: string, base64Data: string, fileUri?: string) {
   const requestId = `summary:${bookId}`;
   if (activeRequests.has(requestId)) return;
@@ -16,14 +32,8 @@ export async function* generateSummaryStream(bookId: string, bookTitle: string, 
     });
 
     if (!response.ok) {
-        let errorData;
-        try {
-            errorData = await response.json();
-        } catch (e) {
-            console.error("[GeminiService] Non-JSON error response:", e);
-            throw new Error(`Server error (${response.status})`);
-        }
-        throw new Error(errorData.error || "Failed to generate summary");
+        const errMsg = await parseResponseError(response, "Failed to generate summary");
+        throw new Error(errMsg);
     }
 
     const reader = response.body?.getReader();
@@ -56,14 +66,8 @@ export async function* generateChatStream(prompt: string, bookTitle: string, bas
         });
 
         if (!response.ok) {
-            let errorData;
-            try {
-                errorData = await response.json();
-            } catch (e) {
-                console.error("[GeminiService] Non-JSON error response from chat:", e);
-                throw new Error(`Server error (${response.status})`);
-            }
-            throw new Error(errorData.error || "Failed to generate chat response");
+            const errMsg = await parseResponseError(response, "Failed to generate chat response");
+            throw new Error(errMsg);
         }
 
         const reader = response.body?.getReader();
@@ -90,14 +94,8 @@ export async function generateQuiz(bookId: string, bookTitle: string, base64Data
     });
 
     if (!response.ok) {
-        let errorData;
-        try {
-            errorData = await response.json();
-        } catch (e) {
-            console.error("[GeminiService] Non-JSON error response from quiz:", e);
-            throw new Error(`Server error (${response.status})`);
-        }
-        throw new Error(errorData.error || "Failed to generate quiz");
+        const errMsg = await parseResponseError(response, "Failed to generate quiz");
+        throw new Error(errMsg);
     }
 
     const data = await response.json();
@@ -111,6 +109,7 @@ export async function generateQuiz(bookId: string, bookTitle: string, base64Data
     throw error;
   }
 }
+
 
 export async function* generateGlobalChatStream(prompt: string, bookTitles: string[], chatHistory: any[] = []) {
     try {

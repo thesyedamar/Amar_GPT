@@ -2,7 +2,6 @@
 import React, { useState, useCallback } from 'react';
 import { Book } from '../types';
 import { Spinner, DownloadIcon, UploadIcon, TrashIcon, PdfFileIcon } from './icons';
-import { GoogleGenAI } from '@google/genai';
 import { useDropzone } from 'react-dropzone';
 
 interface FormatConverterToolProps {
@@ -62,18 +61,20 @@ const FormatConverterTool: React.FC<FormatConverterToolProps> = ({ books }) => {
         setIsLoading(true);
 
         try {
-            // Fix: Create GoogleGenAI instance right before API call
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = getPromptForFormat(targetFormat, bookToProcess.title);
-            
-            const response = await ai.models.generateContent({
-                // Fix: Use recommended model for basic text conversion tasks
-                model: 'gemini-3-flash-preview',
-                contents: prompt,
+            const res = await fetch("/api/gemini/convert-format", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ format: targetFormat, bookTitle: bookToProcess.title })
             });
 
-            const textContent = response.text || "";
-            if (!textContent) throw new Error("No text content returned from model.");
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `Server responded with ${res.status}`);
+            }
+
+            const data = await res.json();
+            const textContent = data.textContent || "";
+            if (!textContent) throw new Error("No text content returned from conversion service.");
             
             const formatDetails = {
                 txt: { mime: 'text/plain;charset=utf-8', ext: 'txt' },
@@ -94,9 +95,9 @@ const FormatConverterTool: React.FC<FormatConverterToolProps> = ({ books }) => {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to convert file:", err);
-            setError("An error occurred during the conversion. The model may be unavailable. Please try again later.");
+            setError(err.message || "An error occurred during the conversion.");
         } finally {
             setIsLoading(false);
         }

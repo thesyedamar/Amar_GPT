@@ -137,11 +137,11 @@ async function startServer() {
 
           const cachedContent = await getOrExtendCache(fileUri, bookTitle);
           const config: any = { temperature: 0.1 };
-          let modelToUse = "gemini-2.5-flash";
+          let modelToUse = "gemini-3.6-flash";
 
           if (cachedContent) {
               config.cachedContent = cachedContent;
-              modelToUse = "gemini-2.5-flash";
+              modelToUse = "gemini-3.6-flash";
               console.log(`[Server] /api/gemini/summarize leveraging context-cache: ${cachedContent}`);
           } else {
               if (fileUri) {
@@ -170,14 +170,14 @@ async function startServer() {
           if (isFileExpiredError(error)) {
               return res.status(410).json({ error: "FILE_EXPIRED", message: "The file reference has expired or does not exist." });
           }
-          res.status(500).json({ error: error.message });
+          res.status(500).json({ error: error.message || "Summarize request failed" });
       }
   });
 
   app.post("/api/gemini/chat", async (req, res) => {
       const { prompt, bookTitle, base64Data, chatHistory, fileUri } = req.body;
       try {
-          const contents: any[] = chatHistory.slice(-6).map((m: any) => ({
+          const contents: any[] = (chatHistory || []).slice(-6).map((m: any) => ({
               role: m.sender === 'user' ? 'user' : 'model',
               parts: [{ text: m.text }]
           }));
@@ -201,11 +201,11 @@ async function startServer() {
               systemInstruction: `You are a specialized AI Study Assistant. Speak as an authority on this specific material. Be extremely concise and direct.`,
               temperature: 0.1,
           };
-          let modelToUse = "gemini-2.5-flash";
+          let modelToUse = "gemini-3.6-flash";
 
           if (cachedContent) {
               config.cachedContent = cachedContent;
-              modelToUse = "gemini-2.5-flash";
+              modelToUse = "gemini-3.6-flash";
               console.log(`[Server] /api/gemini/chat leveraging context-cache: ${cachedContent}`);
           } else {
               if (fileUri) {
@@ -236,7 +236,7 @@ async function startServer() {
           if (isFileExpiredError(error)) {
               return res.status(410).json({ error: "FILE_EXPIRED", message: "The file reference has expired or does not exist." });
           }
-          res.status(500).json({ error: error.message });
+          res.status(500).json({ error: error.message || "Chat request failed" });
       }
   });
 
@@ -252,14 +252,14 @@ async function startServer() {
             temperature: 0.2,
             responseMimeType: "application/json",
         };
-        let modelToUse = "gemini-2.5-flash";
+        let modelToUse = "gemini-3.6-flash";
 
         if (cachedContent) {
             config.cachedContent = cachedContent;
-            modelToUse = "gemini-2.5-flash";
+            modelToUse = "gemini-3.6-flash";
             console.log(`[Server] /api/gemini/quiz leveraging context-cache: ${cachedContent}`);
         } else {
-            modelToUse = "gemini-2.5-flash";
+            modelToUse = "gemini-3.6-flash";
             if (fileUri) {
                 parts.unshift({ fileData: { mimeType: 'application/pdf', fileUri } });
             } else {
@@ -288,7 +288,7 @@ async function startServer() {
         if (isFileExpiredError(error)) {
             return res.status(410).json({ error: "FILE_EXPIRED", message: "The file reference has expired or does not exist." });
         }
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message || "Quiz request failed" });
     }
   });
 
@@ -309,7 +309,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
       contents.push({ role: 'user', parts: [{ text: contextPrompt }] });
 
       const response = await getGenAI().models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents,
         config: {
           systemInstruction: "You are AMARGPT, an intelligent cross-document research assistant.",
@@ -326,7 +326,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
       res.end();
     } catch (error: any) {
       console.error("[Server] Global chat error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message || "Global chat request failed" });
     }
   });
 
@@ -343,7 +343,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
       contents.push({ role: 'user', parts: [{ text: prompt }] });
 
       const response = await getGenAI().models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents,
         config: {
           systemInstruction,
@@ -354,7 +354,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
       res.json({ reply: response.text || "I'm here to help you navigate AMARGPT. Ask me about document chat, quizzes, or PDF utilities!" });
     } catch (error: any) {
       console.error("[Server] Widget chat error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message || "Widget chat request failed" });
     }
   });
 
@@ -372,7 +372,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
       }
 
       const response = await getGenAI().models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: { parts },
         config: {
           temperature: 0.2,
@@ -387,7 +387,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
       res.json(JSON.parse(cleaned || '[]'));
     } catch (error: any) {
       console.error("[Server] Study plan error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message || "Study plan request failed" });
     }
   });
 
@@ -405,7 +405,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
       }
 
       const response = await getGenAI().models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: { parts },
         config: { temperature: 0.4 }
       });
@@ -413,7 +413,78 @@ Provide a well-structured synthesis across the student's study library. Be conci
       res.json({ transcript: response.text || "Alex: Welcome to today's research deep dive!\nSam: Excited to break down this paper." });
     } catch (error: any) {
       console.error("[Server] Podcast transcript error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message || "Podcast transcript request failed" });
+    }
+  });
+
+  app.post("/api/gemini/generate-image", async (req, res) => {
+    const { prompt, aspectRatio = "4:3" } = req.body;
+    try {
+      const response = await getGenAI().models.generateContent({
+        model: "gemini-3.1-flash-lite-image",
+        contents: {
+          parts: [{ text: prompt }]
+        },
+        config: {
+          imageConfig: {
+            aspectRatio: aspectRatio
+          }
+        }
+      });
+
+      let imageUrl = "";
+      if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData?.data) {
+            imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+            break;
+          }
+        }
+      }
+
+      if (!imageUrl) {
+        return res.status(500).json({ error: "No image generated by model" });
+      }
+
+      res.json({ imageUrl });
+    } catch (error: any) {
+      console.error("[Server] Generate image error:", error);
+      res.status(500).json({ error: error.message || "Generate image request failed" });
+    }
+  });
+
+  app.post("/api/gemini/convert-format", async (req, res) => {
+    const { format, bookTitle } = req.body;
+    try {
+      let prompt = "";
+      switch (format) {
+        case 'md':
+          prompt = `You are an AI conversion tool. Convert the content from a document titled "${bookTitle}" into well-structured Markdown. Use headings, lists, bold, and italics where appropriate. Do not add any commentary or explanatory text outside of the direct conversion.`;
+          break;
+        case 'json':
+          prompt = `You are an AI extraction tool. Analyze the content of the document titled "${bookTitle}" and convert its key information into a structured JSON format. Identify main sections, key points, and any tabular data. If the content isn't structured, create a JSON object with a 'content' key holding the text. Output only the raw JSON.`;
+          break;
+        case 'csv':
+          prompt = `You are an AI extraction tool. Analyze the content of the document titled "${bookTitle}" for any tabular data. Convert the first table you find into a comma-separated values (CSV) format. Include a header row. If no clear table is found, return a single line: "No tabular data found."`;
+          break;
+        case 'html':
+          prompt = `You are an AI conversion tool. Convert the content from a document titled "${bookTitle}" into semantic HTML. Use appropriate tags like <h1>, <p>, <ul>, <li>, etc. Do not include <html>, <head>, or <body> tags, only the content markup.`;
+          break;
+        case 'txt':
+        default:
+          prompt = `You are an AI extraction tool. Your task is to provide the plain text content from a document titled "${bookTitle}". Provide the text in a clean, readable format, preserving paragraphs. Do not add any commentary, just the extracted text.`;
+          break;
+      }
+
+      const response = await getGenAI().models.generateContent({
+        model: "gemini-3.6-flash",
+        contents: prompt
+      });
+
+      res.json({ textContent: response.text || "" });
+    } catch (error: any) {
+      console.error("[Server] Convert format error:", error);
+      res.status(500).json({ error: error.message || "Convert format request failed" });
     }
   });
 

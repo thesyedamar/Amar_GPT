@@ -2,7 +2,6 @@
 import React, { useState, useCallback } from 'react';
 import { Book } from '../types';
 import { Spinner, DownloadIcon, UploadIcon, TrashIcon, PdfFileIcon } from './icons';
-import { GoogleGenAI } from '@google/genai';
 import { useDropzone } from 'react-dropzone';
 declare const PDFLib: any;
 
@@ -67,42 +66,28 @@ const PdfToImageTool: React.FC<PdfToImageToolProps> = ({ books }) => {
         setImageUrl(null);
 
         try {
-            // Fix: Create instance right before API call
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const prompt = `Generate a high-quality, educational illustration representing the main concepts of page ${page} from a document titled "${bookToProcess.title}". The style should be clean and clear, like a modern textbook diagram or infographic.`;
             
-            // Fix: Switch to gemini-2.5-flash-image and use generateContent for default image tasks
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
-                contents: {
-                    parts: [{ text: prompt }]
-                },
-                config: {
-                    imageConfig: {
-                        aspectRatio: "4:3"
-                    }
-                },
+            const res = await fetch("/api/gemini/generate-image", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt, aspectRatio: "4:3" })
             });
 
-            // Find the image part in response candidates
-            let foundImage = false;
-            if (response.candidates && response.candidates[0]?.content?.parts) {
-                for (const part of response.candidates[0].content.parts) {
-                    if (part.inlineData) {
-                        const base64EncodeString: string = part.inlineData.data;
-                        setImageUrl(`data:image/png;base64,${base64EncodeString}`);
-                        foundImage = true;
-                        break;
-                    }
-                }
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `Server responded with ${res.status}`);
             }
 
-            if (!foundImage) {
-                throw new Error("The model did not return an image part.");
+            const data = await res.json();
+            if (data.imageUrl) {
+                setImageUrl(data.imageUrl);
+            } else {
+                throw new Error("No image was returned.");
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to generate image:", err);
-            setError("An error occurred while generating the image. The model may be unavailable. Please try again later.");
+            setError(err.message || "An error occurred while generating the image.");
         } finally {
             setIsLoading(false);
         }

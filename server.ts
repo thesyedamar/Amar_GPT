@@ -157,20 +157,36 @@ async function startServer() {
               config
           });
 
-          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-          res.setHeader('Transfer-Encoding', 'chunked');
+          let headersSet = false;
 
           for await (const chunk of response) {
+              if (!headersSet) {
+                  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+                  res.setHeader('Transfer-Encoding', 'chunked');
+                  headersSet = true;
+              }
               const text = chunk.text;
               if (text) res.write(text);
+          }
+          if (!headersSet) {
+              res.setHeader('Content-Type', 'text/plain; charset=utf-8');
           }
           res.end();
       } catch (error: any) {
           console.error("[Server] Summarize error:", error);
-          if (isFileExpiredError(error)) {
-              return res.status(410).json({ error: "FILE_EXPIRED", message: "The file reference has expired or does not exist." });
+          if (res.headersSent) {
+              if (isFileExpiredError(error)) {
+                  res.write("\n[ERROR: FILE_EXPIRED]");
+              } else {
+                  res.write(`\n[ERROR: ${error.message || "Summarize failed"}]`);
+              }
+              res.end();
+          } else {
+              if (isFileExpiredError(error)) {
+                  return res.status(410).json({ error: "FILE_EXPIRED", message: "The file reference has expired or does not exist." });
+              }
+              res.status(500).json({ error: error.message || "Summarize request failed" });
           }
-          res.status(500).json({ error: error.message || "Summarize request failed" });
       }
   });
 
@@ -210,7 +226,7 @@ async function startServer() {
           } else {
               if (fileUri) {
                   userParts.unshift({ fileData: { mimeType: 'application/pdf', fileUri: fileUri } });
-              } else {
+              } else if (base64Data) {
                   userParts.unshift({ inlineData: { mimeType: 'application/pdf', data: base64Data } });
               }
           }
@@ -223,20 +239,36 @@ async function startServer() {
               config
           });
 
-          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-          res.setHeader('Transfer-Encoding', 'chunked');
+          let headersSet = false;
 
           for await (const chunk of response) {
+              if (!headersSet) {
+                  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+                  res.setHeader('Transfer-Encoding', 'chunked');
+                  headersSet = true;
+              }
               const text = chunk.text;
               if (text) res.write(text);
+          }
+          if (!headersSet) {
+              res.setHeader('Content-Type', 'text/plain; charset=utf-8');
           }
           res.end();
       } catch (error: any) {
           console.error("[Server] Chat error:", error);
-          if (isFileExpiredError(error)) {
-              return res.status(410).json({ error: "FILE_EXPIRED", message: "The file reference has expired or does not exist." });
+          if (res.headersSent) {
+              if (isFileExpiredError(error)) {
+                  res.write("\n[ERROR: FILE_EXPIRED]");
+              } else {
+                  res.write(`\n[ERROR: ${error.message || "Chat request failed"}]`);
+              }
+              res.end();
+          } else {
+              if (isFileExpiredError(error)) {
+                  return res.status(410).json({ error: "FILE_EXPIRED", message: "The file reference has expired or does not exist." });
+              }
+              res.status(500).json({ error: error.message || "Chat request failed" });
           }
-          res.status(500).json({ error: error.message || "Chat request failed" });
       }
   });
 
@@ -317,16 +349,28 @@ Provide a well-structured synthesis across the student's study library. Be conci
         }
       });
 
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.setHeader('Transfer-Encoding', 'chunked');
+      let headersSet = false;
 
       for await (const chunk of response) {
+        if (!headersSet) {
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+          res.setHeader('Transfer-Encoding', 'chunked');
+          headersSet = true;
+        }
         if (chunk.text) res.write(chunk.text);
+      }
+      if (!headersSet) {
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       }
       res.end();
     } catch (error: any) {
       console.error("[Server] Global chat error:", error);
-      res.status(500).json({ error: error.message || "Global chat request failed" });
+      if (res.headersSent) {
+        res.write(`\n[ERROR: ${error.message || "Global chat failed"}]`);
+        res.end();
+      } else {
+        res.status(500).json({ error: error.message || "Global chat request failed" });
+      }
     }
   });
 
@@ -494,7 +538,8 @@ Provide a well-structured synthesis across the student's study library. Be conci
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL && !process.env.NETLIFY) {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -502,10 +547,12 @@ Provide a well-structured synthesis across the student's study library. Be conci
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*all', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.get('*all', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
   }
 
   // Error handler middleware
@@ -536,7 +583,12 @@ if (!process.env.VERCEL) {
 }
 
 export default async (req: any, res: any) => {
-  const app = await appPromise;
-  return app(req, res);
+  try {
+    const app = await appPromise;
+    return app(req, res);
+  } catch (err: any) {
+    console.error("[Serverless Handler Error]", err);
+    res.status(500).json({ error: err.message || "Server initialization failed" });
+  }
 };
 

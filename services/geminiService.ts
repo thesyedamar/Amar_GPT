@@ -50,7 +50,14 @@ export async function* generateSummaryStream(bookId: string, bookTitle: string, 
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const text = decoder.decode(value);
+        const text = decoder.decode(value, { stream: true });
+        if (text.includes("[ERROR: FILE_EXPIRED]")) {
+            throw new Error("FILE_EXPIRED");
+        }
+        if (text.includes("[ERROR:")) {
+            const match = text.match(/\[ERROR:\s*(.*?)\]/);
+            throw new Error(match ? match[1] : "Summary stream error");
+        }
         fullText += text;
         yield text;
     }
@@ -83,7 +90,15 @@ export async function* generateChatStream(prompt: string, bookTitle: string, bas
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            yield decoder.decode(value);
+            const text = decoder.decode(value, { stream: true });
+            if (text.includes("[ERROR: FILE_EXPIRED]")) {
+                throw new Error("FILE_EXPIRED");
+            }
+            if (text.includes("[ERROR:")) {
+                const match = text.match(/\[ERROR:\s*(.*?)\]/);
+                throw new Error(match ? match[1] : "Chat stream error");
+            }
+            yield text;
         }
     } catch (error: any) {
         console.error("[GeminiService] generateChatStream error:", error);

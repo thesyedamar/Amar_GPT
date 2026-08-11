@@ -4,6 +4,7 @@ import { Book } from '../types';
 import { CloseIcon, CloudUploadIcon, Spinner, CheckCircleIcon, PdfFileIcon } from './icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { auth } from '../lib/firebase';
+import { storeFile } from '../lib/fileStorage';
 
 import * as pdfjsLib from 'pdfjs-dist';
 // @ts-ignore
@@ -112,6 +113,7 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onFi
                             file: file
                         };
 
+                        await storeFile(newBook.id, file);
                         onFileUpload(newBook);
                         setIsUploading(false);
                         setIsSuccess(true);
@@ -151,6 +153,7 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onFi
                             file: file
                         };
 
+                        await storeFile(newBook.id, file);
                         onFileUpload(newBook);
                         setIsUploading(false);
                         setIsSuccess(true);

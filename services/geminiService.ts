@@ -5,18 +5,24 @@ const activeRequests = new Set<string>();
 
 async function parseResponseError(response: Response, defaultMsg: string): Promise<string> {
   const contentType = response.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    try {
+  try {
+    if (contentType.includes("application/json")) {
       const errorData = await response.json();
-      return errorData.error || errorData.message || defaultMsg;
-    } catch {
-      // Fall through
+      if (errorData.error) return errorData.error;
+      if (errorData.message) return errorData.message;
+    } else {
+      const text = await response.text();
+      if (text && text.length < 300 && !text.startsWith("<!DOCTYPE")) {
+        return text;
+      }
     }
+  } catch (e) {
+    console.error("[GeminiService] Error parsing response:", e);
   }
   if (response.status === 404) {
     return "API endpoint not found (404). Please ensure GEMINI_API_KEY is configured in Vercel environment variables.";
   }
-  return `Server error (${response.status})`;
+  return `${defaultMsg} (${response.status})`;
 }
 
 export async function* generateSummaryStream(bookId: string, bookTitle: string, base64Data: string, fileUri?: string) {

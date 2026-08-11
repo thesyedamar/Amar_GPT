@@ -129,9 +129,37 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onFi
                         const errorResponse = JSON.parse(xhr.responseText);
                         errorMsg = errorResponse.error || errorMsg;
                     } catch (e) {}
-                    setUploadError(errorMsg);
-                    setIsUploading(false);
-                    hasCalledUpload.current = false;
+
+                    console.warn("[Upload] Server upload failed, falling back to local client storage:", errorMsg);
+                    try {
+                        let pageCount = 0;
+                        try {
+                            const arrayBuffer = await file.arrayBuffer();
+                            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                            pageCount = pdf.numPages;
+                        } catch (err) {
+                            console.error("Error counting PDF pages:", err);
+                        }
+
+                        const newBook: Book = {
+                            id: `book-${Date.now()}`,
+                            title: file.name.replace('.pdf', ''),
+                            geminiFileUri: "",
+                            pages: pageCount,
+                            uploadedDate: new Date().toISOString(),
+                            processingStatus: 'completed',
+                            file: file
+                        };
+
+                        onFileUpload(newBook);
+                        setIsUploading(false);
+                        setIsSuccess(true);
+                        setTimeout(handleClose, 500);
+                    } catch (fallbackErr) {
+                        setUploadError(errorMsg);
+                        setIsUploading(false);
+                        hasCalledUpload.current = false;
+                    }
                 }
             };
 

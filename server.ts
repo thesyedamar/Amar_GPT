@@ -10,15 +10,21 @@ import multer from "multer";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize Gemini with the modern SDK
-const genAI = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
+// Initialize Gemini helper with the modern SDK lazily
+function getGenAI() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable is missing on the server. Please add GEMINI_API_KEY in your Vercel Project Settings > Environment Variables.");
   }
-});
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      }
+    }
+  });
+}
 
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -70,25 +76,30 @@ async function startServer() {
     res.json({ status: "ok", env: process.env.NODE_ENV });
   });
 
-  // API Route for direct file upload to Gemini Files API using in-memory storage only (no disk I/O)
+  // API Route for direct file upload to Gemini Files API
   app.post("/api/upload", upload.single("file"), async (req, res) => {
     console.log(`[Server] Received POST /api/upload`);
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       console.error("[Server] GEMINI_API_KEY is missing");
-      return res.status(500).json({ error: "GEMINI_API_KEY is missing" });
+      return res.status(500).json({ error: "GEMINI_API_KEY environment variable is missing on server. Please add GEMINI_API_KEY in Vercel project settings." });
     }
     if (!req.file) {
       console.error("[Server] No file uploaded in request");
       return res.status(400).json({ error: "No file uploaded" });
     }
 
+    let tempFilePath: string | null = null;
     try {
-      console.log(`[Server] Uploading memory-based file to Gemini: ${req.file.originalname}`);
-      const blob = new Blob([req.file.buffer], { type: req.file.mimetype || "application/pdf" });
+      console.log(`[Server] Uploading file to Gemini: ${req.file.originalname}`);
+      const ai = getGenAI();
 
-      const uploadResult = await genAI.files.upload({
-        file: blob,
+      const safeName = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+      tempFilePath = path.join(os.tmpdir(), `upload-${Date.now()}-${safeName}`);
+      fs.writeFileSync(tempFilePath, req.file.buffer);
+
+      const uploadResult = await ai.files.upload({
+        file: tempFilePath,
         config: {
           mimeType: req.file.mimetype || "application/pdf",
           displayName: req.file.originalname,
@@ -106,9 +117,13 @@ async function startServer() {
       console.error("[Server] Upload error:", error);
       
       if (error.message?.includes("API key not valid")) {
-          return res.status(400).json({ error: "Invalid API Key. Please check your Gemini API key in Settings > Secrets." });
+          return res.status(400).json({ error: "Invalid API Key. Please check your Gemini API key in Vercel settings." });
       }
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message || "Failed to upload file to Gemini" });
+    } finally {
+      if (tempFilePath && fs.existsSync(tempFilePath)) {
+        try { fs.unlinkSync(tempFilePath); } catch (e) {}
+      }
     }
   });
 
@@ -136,7 +151,7 @@ async function startServer() {
               }
           }
 
-          const response = await genAI.models.generateContentStream({
+          const response = await getGenAI().models.generateContentStream({
               model: modelToUse,
               contents: { parts },
               config
@@ -202,7 +217,7 @@ async function startServer() {
 
           contents.push({ role: 'user', parts: userParts });
 
-          const response = await genAI.models.generateContentStream({
+          const response = await getGenAI().models.generateContentStream({
               model: modelToUse,
               contents: contents,
               config
@@ -252,7 +267,7 @@ async function startServer() {
             }
         }
 
-        const response = await genAI.models.generateContent({
+        const response = await getGenAI().models.generateContent({
             model: modelToUse,
             contents: { parts },
             config
@@ -293,7 +308,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
 
       contents.push({ role: 'user', parts: [{ text: contextPrompt }] });
 
-      const response = await genAI.models.generateContentStream({
+      const response = await getGenAI().models.generateContentStream({
         model: "gemini-3.5-flash",
         contents,
         config: {
@@ -327,7 +342,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
 
       contents.push({ role: 'user', parts: [{ text: prompt }] });
 
-      const response = await genAI.models.generateContent({
+      const response = await getGenAI().models.generateContent({
         model: "gemini-3.5-flash",
         contents,
         config: {
@@ -356,7 +371,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
         parts.unshift({ inlineData: { mimeType: 'application/pdf', data: base64Data } });
       }
 
-      const response = await genAI.models.generateContent({
+      const response = await getGenAI().models.generateContent({
         model: "gemini-3.5-flash",
         contents: { parts },
         config: {
@@ -389,7 +404,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
         parts.unshift({ inlineData: { mimeType: 'application/pdf', data: base64Data } });
       }
 
-      const response = await genAI.models.generateContent({
+      const response = await getGenAI().models.generateContent({
         model: "gemini-3.5-flash",
         contents: { parts },
         config: { temperature: 0.4 }

@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Book": {
+      "title": "Book",
+      "description": "Study material metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "fileName": { "type": "string" },
+        "pages": { "type": "number" },
+        "uploadedDate": { "type": "string", "format": "date-time" },
+        "summary": { "type": "string" },
+        "quizzes": { "type": "array" }
+      },
+      "required": ["id", "userId", "title"]
+    },
+    "TodoItem": {
+      "title": "TodoItem",
+      "description": "Task in the planner",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "text": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "subject": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "text"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/users/{userId}/books/{bookId}": {
+      "schema": "Book",
+      "description": "User study materials"
+    },
+    "/users/{userId}/todos/{todoId}": {
+      "schema": "TodoItem",
+      "description": "User planner tasks"
+    }
+  }
+}

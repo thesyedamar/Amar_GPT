@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Instrument+Serif:ital,wght@0,400;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Playfair Display", "Instrument Serif", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-background: #F9F8F6;
+  --color-foreground: #151515;
+  --color-muted: #6E6D6A;
+  --color-muted-foreground: #6E6D6A;
+  
+  --color-clay-accent: #151515;
+  --color-clay-accent-secondary: #4A4947;
+  --color-clay-accent-tertiary: #5D5A56;
+  
+  --color-clay-success: #1E3E26;
+  --color-clay-warning: #5C451D;
+  
+  --color-clay-cardBg: #ffffff;
+  
+  --shadow-clayCard: 0 4px 20px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.01);
+  --shadow-clayButton: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-clayPressed: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-claySurface: none;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans selection:bg-black/10 selection:text-foreground;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image: 
+      radial-gradient(at 100% 0%, rgba(220, 215, 200, 0.2) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(210, 205, 195, 0.25) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight font-normal text-foreground;
+  }
+  
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-[#FAF8F5];
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-black/10 hover:bg-black/20 transition-colors;
+    border-radius: 4px;
+  }
+}
+
+@layer utilities {
+  .clay-card {
+    @apply relative overflow-hidden rounded-xl bg-white p-6 text-foreground border border-[#E9E7E0] shadow-clayCard transition-all duration-200;
+  }
+  
+  .clay-card-hover {
+    @apply hover:border-[#D5D3CC] hover:shadow-[0_8px_24px_rgba(30,30,30,0.03)];
+  }
+
+  .clay-button {
+    @apply inline-flex items-center justify-center rounded-lg font-sans font-medium transition-all duration-150 active:scale-[0.98];
+  }
+  
+  .clay-button-primary {
+    @apply bg-[#151515] text-white hover:bg-[#2C2C2B] border border-transparent shadow-clayButton;
+  }
+  
+  .clay-input {
+    @apply flex w-full border border-[#D5D3CC] bg-[#FAF9F7] px-4 py-3 text-foreground text-sm rounded-lg focus:bg-white focus:border-black focus:ring-1 focus:ring-black outline-none transition-all duration-150;
+  }
+
+  .clay-text-gradient {
+    @apply bg-clip-text text-transparent bg-[#151515];
+  }
+
+  /* Pastel colors for tags */
+  .tag-red { @apply bg-[#FDF1F2] text-[#9F353A] border border-[#FADCDD]; }
+  .tag-blue { @apply bg-[#F0F7FF] text-[#1F6C9F] border border-[#DEEBFD]; }
+  .tag-green { @apply bg-[#F0F7F1] text-[#346538] border border-[#DDECDE]; }
+  .tag-yellow { @apply bg-[#FEF9E7] text-[#956400] border border-[#FCEFB4]; }
+}

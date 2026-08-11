@@ -1,0 +1,10 @@
+{
+  "name": "AmarGPT",
+  "description": "An AI-powered SaaS platform for students to interact with their study materials. Upload PDFs, ask questions, generate quizzes and summaries, and convert text to audio. Includes handy file utilities for a complete study workflow.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

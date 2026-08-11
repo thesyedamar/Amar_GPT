@@ -137,11 +137,11 @@ async function startServer() {
 
           const cachedContent = await getOrExtendCache(fileUri, bookTitle);
           const config: any = { temperature: 0.1 };
-          let modelToUse = "gemini-3.6-flash";
+          let modelToUse = "gemini-2.5-flash";
 
           if (cachedContent) {
               config.cachedContent = cachedContent;
-              modelToUse = "gemini-3.6-flash";
+              modelToUse = "gemini-2.5-flash";
               console.log(`[Server] /api/gemini/summarize leveraging context-cache: ${cachedContent}`);
           } else {
               if (fileUri) {
@@ -201,11 +201,11 @@ async function startServer() {
               systemInstruction: `You are a specialized AI Study Assistant. Speak as an authority on this specific material. Be extremely concise and direct.`,
               temperature: 0.1,
           };
-          let modelToUse = "gemini-3.6-flash";
+          let modelToUse = "gemini-2.5-flash";
 
           if (cachedContent) {
               config.cachedContent = cachedContent;
-              modelToUse = "gemini-3.6-flash";
+              modelToUse = "gemini-2.5-flash";
               console.log(`[Server] /api/gemini/chat leveraging context-cache: ${cachedContent}`);
           } else {
               if (fileUri) {
@@ -252,14 +252,14 @@ async function startServer() {
             temperature: 0.2,
             responseMimeType: "application/json",
         };
-        let modelToUse = "gemini-3.6-flash";
+        let modelToUse = "gemini-2.5-flash";
 
         if (cachedContent) {
             config.cachedContent = cachedContent;
-            modelToUse = "gemini-3.6-flash";
+            modelToUse = "gemini-2.5-flash";
             console.log(`[Server] /api/gemini/quiz leveraging context-cache: ${cachedContent}`);
         } else {
-            modelToUse = "gemini-3.1-flash-lite";
+            modelToUse = "gemini-2.5-flash";
             if (fileUri) {
                 parts.unshift({ fileData: { mimeType: 'application/pdf', fileUri } });
             } else {
@@ -309,7 +309,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
       contents.push({ role: 'user', parts: [{ text: contextPrompt }] });
 
       const response = await getGenAI().models.generateContentStream({
-        model: "gemini-3.6-flash",
+        model: "gemini-2.5-flash",
         contents,
         config: {
           systemInstruction: "You are AMARGPT, an intelligent cross-document research assistant.",
@@ -343,7 +343,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
       contents.push({ role: 'user', parts: [{ text: prompt }] });
 
       const response = await getGenAI().models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-2.5-flash",
         contents,
         config: {
           systemInstruction,
@@ -372,7 +372,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
       }
 
       const response = await getGenAI().models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-2.5-flash",
         contents: { parts },
         config: {
           temperature: 0.2,
@@ -405,7 +405,7 @@ Provide a well-structured synthesis across the student's study library. Be conci
       }
 
       const response = await getGenAI().models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-2.5-flash",
         contents: { parts },
         config: { temperature: 0.4 }
       });
@@ -454,17 +454,18 @@ Provide a well-structured synthesis across the student's study library. Be conci
 }
 
 export const appPromise = startServer();
-export default async (req: any, res: any) => {
-  const app = await appPromise;
-  return app(req, res);
-};
 
 // Start standalone server if run directly outside Vercel
 if (!process.env.VERCEL) {
-  startServer().then((app) => {
+  appPromise.then((app) => {
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
   });
 }
+
+export default async (req: any, res: any) => {
+  const app = await appPromise;
+  return app(req, res);
+};
 

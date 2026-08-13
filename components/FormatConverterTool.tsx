@@ -72,7 +72,7 @@ const FormatConverterTool: React.FC<FormatConverterToolProps> = ({ books }) => {
                 throw new Error(errData.error || `Server responded with ${res.status}`);
             }
 
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
             const textContent = data.textContent || "";
             if (!textContent) throw new Error("No text content returned from conversion service.");
             

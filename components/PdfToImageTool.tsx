@@ -79,7 +79,7 @@ const PdfToImageTool: React.FC<PdfToImageToolProps> = ({ books }) => {
                 throw new Error(errData.error || `Server responded with ${res.status}`);
             }
 
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
             if (data.imageUrl) {
                 setImageUrl(data.imageUrl);
             } else {

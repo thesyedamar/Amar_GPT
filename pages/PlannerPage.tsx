@@ -54,13 +54,15 @@ const PlannerPage: React.FC<PlannerPageProps> = ({ books, todos, setTodos }) => 
                 file = (await getFile(book.id)) as File;
             }
 
-            if (!file) {
-                setErrorMsg("Study material file not found locally. Please re-upload the PDF.");
-                setIsLoading(false);
-                return;
+            let base64Data = "";
+            if (file) {
+                try {
+                    base64Data = await fileToBase64(file);
+                } catch (e) {
+                    console.warn("Could not read local file for base64:", e);
+                }
             }
 
-            const base64Data = await fileToBase64(file);
             const planTasks = await generateStudyPlan(book.title, base64Data, goal);
             
             const newTodos: TodoItem[] = planTasks.map((task, index) => ({

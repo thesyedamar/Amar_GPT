@@ -23,6 +23,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ isEmbedded = false }) => {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [retryNotice, setRetryNotice] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isMounted = useIsMounted();
@@ -43,14 +44,47 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ isEmbedded = false }) => {
     setMessages(prev => [...prev, userMsg]);
     setInputValue('');
     setIsLoading(true);
+    setRetryNotice(null);
 
-    // Prepare history
-    const history = messages.map(m => ({ sender: m.sender, text: m.text }));
-    const responseText = await generateWidgetChatResponse(userMsg.text, history);
+    try {
+      // Prepare history
+      const history = messages.map(m => ({ sender: m.sender, text: m.text }));
+      const responseText = await generateWidgetChatResponse(
+        userMsg.text, 
+        history,
+        (attempt, maxRetries, delayMs) => {
+          if (isMounted.current) {
+            setRetryNotice(`Retrying request (${attempt}/${maxRetries}) in ${(delayMs / 1000).toFixed(1)}s...`);
+          }
+        }
+      );
 
-    if (isMounted.current) {
-        setMessages(prev => [...prev, { sender: 'bot', text: responseText }]);
-        setIsLoading(false);
+      if (isMounted.current) {
+          setMessages(prev => [...prev, { sender: 'bot', text: responseText }]);
+      }
+    } catch (error: any) {
+      console.error("[ChatWidget Diagnostic Log] Chat invocation failed after retries:", {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+        error
+      });
+
+      const failureReason = error?.message || "An unexpected error occurred.";
+      const isFunctionInvocationFailed = failureReason.toUpperCase().includes("FUNCTION_INVOCATION_FAILED") || failureReason.includes("500") || failureReason.includes("404");
+
+      const botMessage = isFunctionInvocationFailed
+        ? `⚠️ **Diagnostic Error [FUNCTION_INVOCATION_FAILED]**: ${failureReason}\n\n*Details*: Automatic retries were executed, but the server function continued to fail. Please check API credentials or backend logs.`
+        : `⚠️ **Diagnostic Error**: ${failureReason}`;
+
+      if (isMounted.current) {
+          setMessages(prev => [...prev, { sender: 'bot', text: botMessage }]);
+      }
+    } finally {
+      if (isMounted.current) {
+          setIsLoading(false);
+          setRetryNotice(null);
+      }
     }
   };
 
@@ -112,12 +146,17 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ isEmbedded = false }) => {
                    <div className="flex justify-start animate-pulse">
                      <div className="flex items-end gap-3">
                         <div className="flex-shrink-0 w-8 h-8 bg-white rounded-xl shadow-clayButton flex items-center justify-center"><AIAvatar /></div>
-                        <div className="bg-white p-4 rounded-[20px] rounded-bl-none border border-white/40 shadow-clayCard">
+                        <div className="bg-white p-4 rounded-[20px] rounded-bl-none border border-white/40 shadow-clayCard flex flex-col gap-1.5">
                             <div className="flex space-x-1.5">
                                 <div className="w-2 h-2 bg-clay-accent/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                                 <div className="w-2 h-2 bg-clay-accent/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                                 <div className="w-2 h-2 bg-clay-accent/40 rounded-full animate-bounce"></div>
                             </div>
+                            {retryNotice && (
+                                <span className="text-[11px] font-sans font-semibold text-amber-600">
+                                    {retryNotice}
+                                </span>
+                            )}
                         </div>
                      </div>
                    </div>

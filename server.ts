@@ -431,6 +431,9 @@ Provide a well-structured synthesis across the student's study library. Be conci
       res.json(JSON.parse(cleaned || '[]'));
     } catch (error: any) {
       console.error("[Server] Study plan error:", error);
+      if (isFileExpiredError(error)) {
+        return res.status(410).json({ error: "FILE_EXPIRED", message: "The file reference has expired or does not exist." });
+      }
       res.status(500).json({ error: error.message || "Study plan request failed" });
     }
   });
@@ -438,8 +441,25 @@ Provide a well-structured synthesis across the student's study library. Be conci
   app.post("/api/gemini/podcast-transcript", async (req, res) => {
     const { bookTitle, base64Data, style = 'casual', fileUri } = req.body;
     try {
+      const styleInstructions = {
+        casual: "conversational, approachable, and engaging with intuitive real-world analogies",
+        deep: "rigorous, analytical, focusing on advanced methodology, theoretical foundations, and nuanced technical details",
+        drill: "fast-paced, high-density, focused on rapid recall of core exam concepts, key formulas, and main definitions"
+      };
+      const styleDesc = styleInstructions[style as keyof typeof styleInstructions] || styleInstructions.casual;
+
       const parts: any[] = [
-        { text: `Generate an engaging 2-person academic podcast transcript discussing key insights from "${bookTitle}". Hosts are Alex (Inquisitive student) and Sam (Lead researcher). Tone: ${style}. Return dialogue formatted as "Alex: ..." and "Sam: ...".` }
+        { text: `You are producing an episode of the "Studious" academic podcast discussing the research work "${bookTitle}".
+Create an extensive, detailed, and engaging multi-turn dialogue transcript between two co-hosts:
+- Alex: An inquisitive student host who asks thoughtful, probing questions, requests clarifications, and connects concepts to practical study scenarios.
+- Sam: A lead researcher and domain expert who thoroughly breaks down core themes, methodology, critical findings, and practical takeaways.
+
+REQUIREMENTS:
+1. The dialogue MUST be comprehensive and substantial, containing AT LEAST 12 to 18 back-and-forth speech turns (exchanges).
+2. Tone & Style: ${style.toUpperCase()} (${styleDesc}).
+3. Thoroughly explore the core arguments, evidence, methodology, key findings, and real-world implications from the attached document/title.
+4. Formatting: Every single line MUST start strictly with either "Alex: " or "Sam: ".
+5. Do NOT include any markdown headings, stage directions in brackets, or intro/outro meta-text outside of the "Alex: " and "Sam: " lines.` }
       ];
 
       if (fileUri) {
@@ -457,6 +477,9 @@ Provide a well-structured synthesis across the student's study library. Be conci
       res.json({ transcript: response.text || "Alex: Welcome to today's research deep dive!\nSam: Excited to break down this paper." });
     } catch (error: any) {
       console.error("[Server] Podcast transcript error:", error);
+      if (isFileExpiredError(error)) {
+        return res.status(410).json({ error: "FILE_EXPIRED", message: "The file reference has expired or does not exist." });
+      }
       res.status(500).json({ error: error.message || "Podcast transcript request failed" });
     }
   });
